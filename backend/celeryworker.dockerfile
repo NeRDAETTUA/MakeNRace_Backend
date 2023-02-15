@@ -1,8 +1,8 @@
-FROM python:3.7
+FROM python:3.10
 
 WORKDIR /app/
 
-# Install Poetry 
+# Install Poetry
 RUN curl -sSL https://install.python-poetry.org | POETRY_HOME=/opt/poetry python3
 ENV PATH="/opt/poetry/bin:$PATH"
 RUN poetry config virtualenvs.create false
