@@ -1,0 +1,73 @@
+version: '3.9'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: ./deploy/Dockerfile
+    image: mnr:${MNR_VERSION:-latest}
+    restart: always
+    env_file:
+    - .env
+    labels:
+      # Enables traefik for this container.
+    - traefik.enable=true
+    - traefik.http.routers.mnr.rule=Host(`${MNR_TRAEFIK_HOST:-mnr.localhost}`)
+    - traefik.http.routers.mnr.entrypoints=http
+    - traefik.http.routers.mnr.service=mnr
+    - traefik.http.services.mnr.loadbalancer.server.port=${MNR_PORT:-8000}
+    networks:
+    - default
+    - traefik-shared
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      MNR_HOST: 0.0.0.0
+      MNR_DB_HOST: mnr-db
+      MNR_DB_PORT: 3306
+      MNR_DB_USER: mnr
+      MNR_DB_PASS: mnr
+      MNR_DB_BASE: mnr
+
+  db:
+    image: bitnami/mysql:8.0.30
+    hostname: mnr-db
+    restart: always
+    environment:
+      MYSQL_ROOT_USER: "mnr"
+      MYSQL_ROOT_PASSWORD: "mnr"
+      MYSQL_DATABASE: "mnr"
+      MYSQL_AUTHENTICATION_PLUGIN: "mysql_native_password"
+    healthcheck:
+      test: mysqladmin ping -h localhost
+      interval: 10s
+      timeout: 5s
+      retries: 40
+    volumes:
+    - mnr-db-data:/bitnami/mysql/data
+
+  migrator:
+    image: mnr:${MNR_VERSION:-latest}
+    restart: "no"
+    command: alembic upgrade head
+    environment:
+      MNR_DB_HOST: mnr-db
+      MNR_DB_PORT: 3306
+      MNR_DB_USER: mnr
+      MNR_DB_PASS: mnr
+      MNR_DB_BASE: mnr
+    depends_on:
+      db:
+        condition: service_healthy
+
+
+
+volumes:
+  mnr-db-data:
+    name: mnr-db-data
+
+networks:
+  # Network for traefik.
+  traefik-shared:
+    name: traefik-shared
